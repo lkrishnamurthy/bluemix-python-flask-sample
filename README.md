@@ -49,7 +49,7 @@ Once the application is deployed and started open a web browser and point to the
 
 **requirements.txt** - Contains the external python packages that are required by the application. These will be downloaded from the [python package index](https://pypi.python.org/pypi/) and installed via the python package installer (pip) during the buildpack's compile stage when you execute the cf push command. In this sample case we wish to download the [Flask package](https://pypi.python.org/pypi/Flask) at version 0.10.1
 
-**runtime.txt** - Controls which python runtime to use. In this case we want to use 2.7.11. 
+**runtime.txt** - Controls which python runtime to use. In this case we want to use 2.7.10. 
 
 **README.md** - this readme.
 
