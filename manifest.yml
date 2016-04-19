@@ -1,4 +1,4 @@
 ---
 applications:
-- name: bluemix-python-flask-sample
-  memory: 128M
+- name: lk-flask
+  memory: 256M

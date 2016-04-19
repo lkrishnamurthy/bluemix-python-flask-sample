@@ -1,0 +1,21 @@
+<?xml version='1.0' encoding='utf-8'?>
+<rep sts="OK">
+<doc id="">
+  <text>blah</text>
+  <sents>
+    <sent sid="0" begin="0" end="0">
+      <text>blah</text>
+      <parse score="-1.321">[S [NP blah_NNP NP] S]</parse>
+      <dependency_parse>blah NNP -1 NP </dependency_parse>
+      <usd_dependency_parse>blah NNP -1 root</usd_dependency_parse>
+      <tokens>
+        <token tid="0" begin="0" end="3" type="4096" POS="NNP" lemma="blah">blah</token>
+      </tokens>
+    </sent>
+  </sents>
+  <mentions/>
+  <entities/>
+  <relations version="KLUE2_cascaded:2011_10_25"/>
+  <sgml_sent_info/>
+  <sgml_char_info/>
+</doc></rep>

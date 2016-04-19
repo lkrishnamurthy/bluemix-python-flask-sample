@@ -13,18 +13,35 @@
 # limitations under the License.
 
 import os
-from flask import Flask
+import json
+from flask import Flask,Response, request
+from watson.classifyMessage import  ClassifyMessage
+
+classifier = ClassifyMessage()
 
 app = Flask(__name__)
+
 
 @app.route('/')
 def Welcome():
     return app.send_static_file('index.html')
 
+
 @app.route('/myapp')
 def WelcomeToMyapp():
     return 'Welcome again to my app running on Bluemix!'
 
+@app.route('/classify')
+def classify():
+    print ("Request Received %s" % request.args['text'])
+    text = request.args['text']
+    classifiedText = classifier.classifyText(text)
+    return Response(json.dumps(classifiedText), status=200, mimetype='application/json')
+
 port = os.getenv('PORT', '5000')
 if __name__ == "__main__":
-	app.run(host='0.0.0.0', port=int(port))
+    print("Initializing...")
+    classifier.classifyText('blah')
+    app.run(host='0.0.0.0', port=int(port))
+
+
