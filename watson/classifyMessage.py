@@ -80,7 +80,7 @@ class ClassifyMessage:
                 matchesCC = re.findall('[a-z]+_CC', parse)
                 if len(matchesCC) > 0:
                     for match in matchesCC:
-                    #remove the connective syntactic tag
+                        #remove the connective syntactic tag
                         match = match.replace('_CC','')
                         #break the sentence into individual clauses
                         clauses.extend(clause.split(" "+match+" "))
@@ -174,51 +174,84 @@ class ClassifyMessage:
     def postProcessor(self,response):
         action = {}
         intents = Set()
-        intentNames = ""
+        actionIntentNames = ""
+        botIntentNames = ""
         urls = ""
         numberIntents = 0
+        actionIntents = Set()
+        botIntents = Set()
+        answer = ""
+        intentName = ""
         if len(response['Intents']) > 1:
             # complex scenario
             for intent in response['Intents']:
-                intents.add(intent['class'])
-            print str(intents)
-            for intent in intents:
+                intentName = intent['class']
+                intents.add(intentName)
+                if ("box" in intentName) or ("badge" in intentName) or ("enterprise" in intentName):
+                    actionIntents.add(intentName)
+                elif ("task" in intentName) or ("repository" in intentName) or ("scheduling" in intentName) or ("statsbot" in intentName):
+                    botIntents.add(intentName)
+            for intent in actionIntents:
                 if numberIntents == 0:
-                    intentNames = intent.replace('_', ' ')
+                    actionIntentNames = intent.replace('_', ' ')
                     urls = self.getUrl(intent)
                 elif numberIntents + 1 == len(intents):
-                    intentNames = intentNames + " and " + intent.replace('_', ' ')
+                    actionIntentNames = actionIntentNames + " and " + intent.replace('_', ' ')
                     urls = urls + " and " + self.getUrl(intent)
                 else:
-                    intentNames = intentNames + ", " + intent.replace('_', ' ')
+                    actionIntentNames = actionIntentNames + ", " + intent.replace('_', ' ')
                     urls = urls + ", " + self.getUrl(intent)
                 numberIntents += 1
-            action[
-                'Message'] = "I noticed you need help with " + intentNames + ". The following links might help you with what you need: " + urls + "."
+            answer = "I can help you right away with " + actionIntentNames + ". Just follow the link(s): " + urls
+            numberIntents = 0
+            for intent in botIntents:
+                if numberIntents == 0:
+                    botIntentNames = intent.replace('_', ' ')
+                    urls = self.getUrl(intent)
+                elif numberIntents + 1 == len(intents):
+                    botIntentNames = botIntentNames + " and " + intent.replace('_', ' ')
+                    urls = urls + " and " + self.getUrl(intent)
+                else:
+                    botIntentNames = botIntentNames + ", " + intent.replace('_', ' ')
+                    urls = urls + ", " + self.getUrl(intent)
+                numberIntents += 1
+            if len(botIntents) > 1:
+                answer = answer+" and for "+botIntentNames+" I found these cool Bots that can help "+ urls
+            else:
+                answer = answer+" and for "+botIntentNames+" I found this Bot that can help you "+ urls
+            action['Message'] = answer
         else:
             intent = response['Intents'][0]
             intent = intent['class']
             messages = ["If I understand you correctly, you need help with ",
                         "O.k. let's get you in better shape! It looks like you need help with ",
-                        "I'm more than happy to help you with ", "It looks like you are looking for information about "]
-            followup = ["Here's a Bot that can help you. ", "Try this Bot ",
-                        "Why don't you try this Bot "]
+                        "I'm more than happy to help you with ",
+                        "It looks like you are looking for information about "]
+            actionMessage = ["Here's what I found for: ",
+                             "This link might have the answer you are looking for ",
+                             "Why don't you try this: "]
+            botMessage = ["I found a Bot that can help you ",
+                          "Try this cool Bot ",
+                          "Why don't you try this Bot "]
             # if response['Sentiment'] is "negative":
             action['Severity'] = "high"
             url = self.getUrl(intent)
             action['URL'] = url
             intent = intent.replace('_', ' ')
-            action['Message'] = messages[random.randint(0, len(messages) - 1)] + intent + ". " + followup[
-                random.randint(0, len(followup) - 1)] + url.encode('ascii', 'ignore').decode('ascii') + "."
+            if ("box" in intent) or ("badge" in intent) or ("enterprise" in intent):
+                action['Message'] = actionMessage[random.randint(0, len(actionMessage) - 1)] + url.encode('ascii', 'ignore').decode('ascii')
+            else:
+                action['Message'] = messages[random.randint(0, len(messages) - 1)] + intent + ". " + botMessage[
+                    random.randint(0, len(botMessage) - 1)] + url.encode('ascii', 'ignore').decode('ascii')
         return action['Message']
 
     def getUrl(self,intent):
         if intent == 'task_management':
-            url = "http://howdy.ai/"
+            url = "http://howdy.ai/?ref=slackappstore"
         elif intent == 'repository':
             url = "https://slackerdemo.slack.com/apps/new/A0F7XDU93-hubot"
         elif intent == 'scheduling':
-            url = "https://meekan.com/slack/"
+            url = "https://meekan.com/slack/?ref=slackappstore"
         elif intent == 'enterprise_directory':
             url = "https://w3-03.sso.ibm.com/bluepages/index.wss"
         elif intent == 'statsbot':

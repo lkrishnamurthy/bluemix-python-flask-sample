@@ -1,0 +1,14 @@
+# Created by .ignore support plugin (hsz.mobi)
+.idea/
+target/
+build/
+local/
+*.iml
+test
+etc
+requirements.txt
+*.pyc
+bin/
+configs
+/.settings/
+watson/api_key.txt

@@ -1,6 +1,6 @@
-#Sample Bluemix Python Web application
+# Python Flash Application for Analyzing Tweets & Slack Posts
 
-The sample is using [Flask microframework](http://flask.pocoo.org/) and is intented to test the Python support on [IBM's Bluemix](https://bluemix.net/) environment which is based on Cloud Foundry.
+The application is using [Flask microframework](http://flask.pocoo.org/) and is intented to  be used as a simple web application with Python support on [IBM's Bluemix](https://bluemix.net/) environment which is based on Cloud Foundry.
 
 IBM Bluemix contains the Python buildpack from [Cloud Foundry](https://github.com/cloudfoundry/python-buildpack) and so will be auto-detected as long as a requirements.txt or a setup.py is located in the root of your application.
 
@@ -10,10 +10,10 @@ If you just wish to automatically deploy this sample to Bluemix then just click 
 
 Alternatively follow the steps below to get the sample code and see how to deploy manually.
 
-##Get this sample
+##Get this application
 From a terminal navigate to a location where you want this application code to be downloaded to and issue:
 ```bash
-git clone https://github.com/IBM-Bluemix/bluemix-python-flask-sample
+git clone https://github.com/lkrishnamurthy/bluemix-python-flask-sample
 ```
 or download the zip file containing this sample code.
 
@@ -28,7 +28,9 @@ cf login -a api.eu-gb.bluemix.net
 ```
 The login will ask you for you `email`(username) and `password`, plus the `organisation` and `space` if there is more than one to choose from.
 
-From the root directory of the application code execute the following to deploy the application to Bluemix. (By default the `route` (application URL) will be based on your application name so make sure your application name is unique or use the -n option on the cf push command to define your hostname)
+From the root directory of the application code execute the following to deploy the application to Bluemix. (By default the `route` (application URL) will be based on your application name so make sure your application name is unique or use the -n option on the cf push command to define your hostname).
+You can also modify the manifest.yml to point to your new application name
+
 ```script
 cf push <YOUR_APP_NAME> -m 128M 
 ```
