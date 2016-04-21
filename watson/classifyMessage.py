@@ -45,7 +45,7 @@ class ClassifyMessage:
                                                                                                                ' ').replace(
             '\'', '')
 
-    def classifyText(self, text):
+    def classifyText(self, text,store):
         newClassification = {}
         clauses = []
         tempClauses = []
@@ -80,7 +80,7 @@ class ClassifyMessage:
                 matchesCC = re.findall('[a-z]+_CC', parse)
                 if len(matchesCC) > 0:
                     for match in matchesCC:
-                        #remove the connective syntactic tag
+                    #remove the connective syntactic tag
                         match = match.replace('_CC','')
                         #break the sentence into individual clauses
                         clauses.extend(clause.split(" "+match+" "))
@@ -169,8 +169,10 @@ class ClassifyMessage:
                 return newClassification
         return "no_action"
         """
-        return self.postProcessor(newClassification)
-
+        if "true" in store:
+            return newClassification
+        else:
+            return self.postProcessor(newClassification)
     def postProcessor(self,response):
         action = {}
         intents = Set()
@@ -187,15 +189,16 @@ class ClassifyMessage:
             for intent in response['Intents']:
                 intentName = intent['class']
                 intents.add(intentName)
-                if ("box" in intentName) or ("badge" in intentName) or ("enterprise" in intentName):
+                if ("box" in intentName) or ("badge" in intentName) or ("enterprise" in intentName) \
+                    or ("travel" in intentName) or ("expenses" in intentName):
                     actionIntents.add(intentName)
-                elif ("task" in intentName) or ("repository" in intentName) or ("scheduling" in intentName) or ("statsbot" in intentName):
+                elif ("task" in intentName) or ("repository" in intentName) or ("scheduling" in intentName) or ("analytics" in intentName):
                     botIntents.add(intentName)
             for intent in actionIntents:
                 if numberIntents == 0:
                     actionIntentNames = intent.replace('_', ' ')
                     urls = self.getUrl(intent)
-                elif numberIntents + 1 == len(intents):
+                elif numberIntents + 1 == len(actionIntents):
                     actionIntentNames = actionIntentNames + " and " + intent.replace('_', ' ')
                     urls = urls + " and " + self.getUrl(intent)
                 else:
@@ -208,7 +211,7 @@ class ClassifyMessage:
                 if numberIntents == 0:
                     botIntentNames = intent.replace('_', ' ')
                     urls = self.getUrl(intent)
-                elif numberIntents + 1 == len(intents):
+                elif numberIntents + 1 == len(botIntents):
                     botIntentNames = botIntentNames + " and " + intent.replace('_', ' ')
                     urls = urls + " and " + self.getUrl(intent)
                 else:
@@ -227,7 +230,7 @@ class ClassifyMessage:
                         "O.k. let's get you in better shape! It looks like you need help with ",
                         "I'm more than happy to help you with ",
                         "It looks like you are looking for information about "]
-            actionMessage = ["Here's what I found for: ",
+            actionMessage = ["Here's what I found for you: ",
                              "This link might have the answer you are looking for ",
                              "Why don't you try this: "]
             botMessage = ["I found a Bot that can help you ",
@@ -238,7 +241,7 @@ class ClassifyMessage:
             url = self.getUrl(intent)
             action['URL'] = url
             intent = intent.replace('_', ' ')
-            if ("box" in intent) or ("badge" in intent) or ("enterprise" in intent):
+            if ("box" in intent) or ("badge" in intent) or ("enterprise" in intent) or ("travel" in intent) or ("expenses" in intent):
                 action['Message'] = actionMessage[random.randint(0, len(actionMessage) - 1)] + url.encode('ascii', 'ignore').decode('ascii')
             else:
                 action['Message'] = messages[random.randint(0, len(messages) - 1)] + intent + ". " + botMessage[
@@ -254,12 +257,16 @@ class ClassifyMessage:
             url = "https://meekan.com/slack/?ref=slackappstore"
         elif intent == 'enterprise_directory':
             url = "https://w3-03.sso.ibm.com/bluepages/index.wss"
-        elif intent == 'statsbot':
+        elif intent == 'analytics':
             url = "https://statsbot.co/?ref=slackappstore"
         elif intent == 'badge':
             url = "http://w3-03.ibm.com/security/secweb.nsf/ContentDocsByCtryTitle/United+States~Badge+request+and+administration"
         elif intent == 'box_notes':
             url = "https://www.box.com/notes/"
+        elif intent == 'travel':
+            url = "http://w3-01.ibm.com/hr/web/travel/index.html"
+        elif intent == 'expenses':
+            url = "http://w3-01.ibm.com/hr/web/expenses/"
         else:
             url = None
         return url
