@@ -35,13 +35,16 @@ def WelcomeToMyapp():
 def classify():
     print ("Request Received %s" % request.args['text'])
     text = request.args['text']
-    classifiedText = classifier.classifyText(text)
+    store = request.args['store']
+
+    classifiedText = classifier.classifyText(text,store)
+
     return Response(json.dumps(classifiedText), status=200, mimetype='application/json')
 
 port = os.getenv('PORT', '5000')
 if __name__ == "__main__":
     print("Initializing...")
-    classifier.classifyText('blah')
+    classifier.classifyText('blah','false')
     app.run(host='0.0.0.0', port=int(port))
 
 
