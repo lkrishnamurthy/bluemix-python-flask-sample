@@ -27,6 +27,9 @@ NLC_CREDS = "0cff2e79-2b9e-4ed2-b200-598593755474:GIbzM6frd0Lg"
 RE_URL = "https://gateway.watsonplatform.net/relationship-extraction-beta/api/v1/sire/0"
 RE_CREDS = "0cff2e79-2b9e-4ed2-b200-598593755474:GIbzM6frd0Lg"
 
+SLACK_API_TOKEN_ECO="xoxp-19715880850-26863632519-36432026401-b70bc3418c"
+SLACK_API_TOKEN_SLACKER="xoxp-34402827254-34409890672-36426885575-e8fce120c6"
+
 OUTPUT_DIR = "Slack/results"
 
 
@@ -178,14 +181,20 @@ class ClassifyMessage:
 
     def searchChannels(self, keywords):
         channels = []
-        response = ic.searchMessages(keywords)
-        print "Response: "+str(response)
-        if response is not None:
+        response_eco = ic.searchMessages(keywords, SLACK_API_TOKEN_ECO)
+        response_slacker = ic.searchMessages(keywords, SLACK_API_TOKEN_SLACKER)
+        if response_eco is not None:
             channelFreq = {}
-            channelFreq = ic.getChannels(response)
-            print "ChannelFreq: "+str(channelFreq)
+            channelFreq = ic.getChannels(response_eco)
+            #print "ChannelFreq: "+str(channelFreq)
             if channelFreq is not None:            
                 channels = ic.getTopNChannels(3, channelFreq)
+        if response_slacker is not None:
+            channelFreq = {}
+            channelFreq = ic.getChannels(response_slacker)
+            print "ChannelFreq: "+str(channelFreq)
+            if channelFreq is not None:            
+                channels.extend(ic.getTopNChannels(3, channelFreq))
         return channels
         
     def postProcessor(self,response):

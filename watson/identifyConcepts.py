@@ -30,7 +30,8 @@ CI_UPDATEDOC_URL="https://gateway.watsonplatform.net/concept-insights/api/v2/cor
 
 OUTPUT_DIR="/Users/priscillamoraes/Documents/work/Ecosystem/Slack/data/ibmcicontentplain"
 
-SLACK_API_TOKEN="xoxp-19715880850-26863632519-36432026401-b70bc3418c"
+SLACK_API_TOKEN_ECO="xoxp-19715880850-26863632519-36432026401-b70bc3418c"
+SLACK_API_TOKEN_SLACKER="xoxp-34402827254-34409890672-36426885575-e8fce120c6"
 SLACK_URL="https://slack.com/api/search.messages?"
 
 class IdentifyConcepts:
@@ -81,9 +82,9 @@ class IdentifyConcepts:
                 print ('Response:')
                 print (response)
                 
-    def searchMessages(self, keywords):
+    def searchMessages(self, keywords, token):
         query = keywords.replace(" ","%20")
-        curl_cmd = 'curl -X GET "%stoken=%s&query=%s&pretty=1"' % (SLACK_URL, SLACK_API_TOKEN, query)
+        curl_cmd = 'curl -X GET "%stoken=%s&query=%s&pretty=1"' % (SLACK_URL, token, query)
         print curl_cmd
         process = subprocess.Popen(shlex.split(curl_cmd), stdout=subprocess.PIPE)
         output = process.communicate()[0]
