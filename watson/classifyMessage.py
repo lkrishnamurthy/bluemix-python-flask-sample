@@ -181,6 +181,7 @@ class ClassifyMessage:
 
     def searchChannels(self, keywords):
         channels = []
+        teams = []
         response_eco = ic.searchMessages(keywords, SLACK_API_TOKEN_ECO)
         response_slacker = ic.searchMessages(keywords, SLACK_API_TOKEN_SLACKER)
         if response_eco is not None:
@@ -189,13 +190,16 @@ class ClassifyMessage:
             #print "ChannelFreq: "+str(channelFreq)
             if channelFreq is not None:            
                 channels = ic.getTopNChannels(3, channelFreq)
+        teams.append(channels)
         if response_slacker is not None:
             channelFreq = {}
             channelFreq = ic.getChannels(response_slacker)
             print "ChannelFreq: "+str(channelFreq)
             if channelFreq is not None:            
-                channels.extend(ic.getTopNChannels(3, channelFreq))
-        return channels
+                channels = ic.getTopNChannels(3, channelFreq)
+        teams.append(channels)
+        print "Teams: "+str(teams)
+        return teams
         
     def postProcessor(self,response):
         action = {}
@@ -282,20 +286,28 @@ class ClassifyMessage:
         try:
             relevantChannels = response['RelevantChannels']
             print str(relevantChannels)
-            if len(relevantChannels) > 0:
+            if len(relevantChannels[0]) + len(relevantChannels[1]) > 0:
                 channels = ""
-                channelsMessage = "I also found some channels on which people mentioned this topic. You might want to consider taking a look! The channels are: "
+                channelsMessage = "I also found other channels discussing about this post. Consider joining the channels: ["
                 numberOfChannels = 0                
-                for channel in relevantChannels:
+                for channel in relevantChannels[1]:
                     if numberOfChannels == 0:
-                        channels = channel
-                    elif numberOfChannels + 1 == len(relevantChannels):
-                        channels = channels + " and " + channel
+                        channels = "SlackerDemo:"+channel
+#                    elif numberOfChannels + 1 == len(relevantChannels):
+#                        channels = channels + " and " + channel
                     else:
-                        channels = channels + ", " + channel
+                        channels = channels + ", " + "SlackerDemo:"+channel
                     numberOfChannels += 1
+                print "Channels after SlackerDemo "+channels 
+                for channel in relevantChannels[0]:
+                    if channels is "":
+                        channels = "IBM Watson Ecosystem:"+channel
+#                    elif numberOfChannels + 1 == len(relevantChannels):
+#                        channels = channels + " and " + channel
+                    else:
+                        channels = channels + ", " + "IBM Watson Ecosystem:"+channel
                 print channels
-                channelsMessage = channelsMessage+channels
+                channelsMessage = channelsMessage+channels+"]"
                 print channelsMessage
                 action['Message'] = str(action['Message'])+" "+channelsMessage
                 print "Final action: "+action['Message']
