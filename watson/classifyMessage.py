@@ -14,19 +14,21 @@ import random
 from sets import Set
 
 from alchemyapi import AlchemyAPI
+from identifyConcepts import *
 
 alchemyapi = AlchemyAPI()
-
-actionMessages = []
-allMessages = []
+ic = IdentifyConcepts()
 
 NLC_URL = "https://gateway.watsonplatform.net/natural-language-classifier/api/v1/classifiers/"
-NLC_CLASSIFIER="f1704ex55-nlc-5545"
-#NLC_CLASSIFIER = "f15e67x54-nlc-4751"
+NLC_CLASSIFIER="3a84cfx63-nlc-174"
+#NLC_CLASSIFIER="36d0c7x60-nlc-115"
 NLC_CREDS = "0cff2e79-2b9e-4ed2-b200-598593755474:GIbzM6frd0Lg"
 
 RE_URL = "https://gateway.watsonplatform.net/relationship-extraction-beta/api/v1/sire/0"
 RE_CREDS = "0cff2e79-2b9e-4ed2-b200-598593755474:GIbzM6frd0Lg"
+
+SLACK_API_TOKEN_ECO="xoxp-19715880850-26863632519-36432026401-b70bc3418c"
+SLACK_API_TOKEN_SLACKER="xoxp-34402827254-34409890672-36426885575-e8fce120c6"
 
 OUTPUT_DIR = "Slack/results"
 
@@ -38,18 +40,16 @@ class ClassifyMessage:
     def stripSpecial(myString):
         return myString.replace('\n', ' ').replace('"', ' ').replace('!', ' ').replace('@', ' ').replace('#', ' ') \
             .replace('$', ' ').replace('%', ' ').replace('^', ' ').replace('&', ' ').replace('*', ' ').replace('(', ' ') \
-            .replace(')', ' ').replace('<', ' ').replace('>', ' ').replace('/', ' ').replace('\\', ' ').replace('[',
-                                                                                                                ' ') \
+            .replace(')', ' ').replace('<', ' ').replace('>', ' ').replace('/', ' ').replace('\\', ' ').replace('[',' ') \
             .replace(']', ' ').replace('{', ' ').replace('}', ' ').replace('|', ' ').replace(':', ' ').replace(';', ' ') \
-            .replace(',', ' ').replace('-', ' ').replace('+', ' ').replace('=', ' ').replace('~', ' ').replace('_',
-                                                                                                               ' ').replace(
-            '\'', '')
+            .replace(',', ' ').replace('-', ' ').replace('+', ' ').replace('=', ' ').replace('~', ' ').replace('_',' ').replace('\'', '')
 
     def classifyText(self, text,store):
         newClassification = {}
         clauses = []
         tempClauses = []
         intents = []
+        searchChannels = ""
 
         #Call Relatioship Extraction and get the sentences broken up
         #getting the sentences from parse
@@ -57,44 +57,54 @@ class ClassifyMessage:
         curl_cmd = 'curl -X POST -u %s %s -d "sid=ie-en-news" -d "txt=%s"' % (RE_CREDS, RE_URL, text)
         process = subprocess.Popen(shlex.split(curl_cmd), stdout=subprocess.PIPE)
         output = process.communicate()[0]
-        f = open(OUTPUT_DIR+'/parse.txt', 'w+')
-        f.write(output)
-        f.close()
-
-        parsedXML = xml.etree.ElementTree.parse(OUTPUT_DIR+'/parse.txt').getroot()
-        doc = parsedXML.find('doc')
-        sents = doc.find('sents')
-        for sentence in sents.findall('sent'):
-            surface = sentence.find('text').text
-            parse = sentence.find('parse').text
-            #find main clauses separated by comma
-            matchesList = re.findall('\,\_\, \[VP', parse)
-            if len(matchesList) > 0:
-                for match in matchesList:
-                    #break the sentence into individual clauses
-                    tempClauses.extend(surface.split(","))
-            else:
-                tempClauses.append(surface)
-            for clause in tempClauses:
-                #find a coordinating conjunction connective
-                matchesCC = re.findall('[a-z]+_CC', parse)
-                if len(matchesCC) > 0:
-                    for match in matchesCC:
-                    #remove the connective syntactic tag
-                        match = match.replace('_CC','')
+        try:
+            f = open(OUTPUT_DIR+'/parse.txt', 'w+')
+            f.write(output)
+            f.close()
+        except:
+            print ('Command:')
+            print (curl_cmd)
+            print ('Response:')
+            print (output)
+        
+        try:
+            parsedXML = xml.etree.ElementTree.parse(OUTPUT_DIR+'/parse.txt').getroot()
+            doc = parsedXML.find('doc')
+            sents = doc.find('sents')
+            for sentence in sents.findall('sent'):
+                surface = sentence.find('text').text
+                parse = sentence.find('parse').text
+                #find main clauses separated by comma
+                matchesList = re.findall('\,\_\, \[VP', parse)
+                if len(matchesList) > 0:
+                    for match in matchesList:
                         #break the sentence into individual clauses
-                        clauses.extend(clause.split(" "+match+" "))
+                        tempClauses.extend(surface.split(","))
                 else:
-                    clauses.append(clause)
-        uniqueClauses = Set()
-        for clause in clauses:
-            uniqueClauses.add(clause)
-        clauses = list(uniqueClauses)
-        print "Clauses: "+str(len(clauses))
-        print clauses
-
-        newClassification['Message'] = text
-
+                    tempClauses.append(surface)
+                for clause in tempClauses:
+                    #find a coordinating conjunction connective
+                    matchesCC = re.findall('[a-z]+_CC', parse)
+                    if len(matchesCC) > 0:
+                        for match in matchesCC:
+                            #remove the connective syntactic tag
+                            match = match.replace('_CC','')
+                            #break the sentence into individual clauses
+                            clauses.extend(clause.split(" "+match+" "))
+                    else:
+                        clauses.append(clause)
+            uniqueClauses = Set()
+            for clause in clauses:
+                uniqueClauses.add(clause)
+            clauses = list(uniqueClauses)
+            print "Clauses: "+str(len(clauses))
+            print clauses
+    
+            newClassification['Message'] = text
+        except:
+            print ('Exception when obtaining the parse from RE service.')
+            newClassification['Message'] = None
+            
         #getting the sentiment of the message
         sentimentResponse = alchemyapi.sentiment("text", text)
         if sentimentResponse['status'] == 'OK':
@@ -126,6 +136,7 @@ class ClassifyMessage:
             for keywordEntry in keywordResponse['keywords']:
                 keyword = {}
                 keyword['text'] = keywordEntry['text'].encode('utf-8')
+                searchChannels += keywordEntry['text'].encode('utf-8')+" "
                 keyword['relevance'] = keywordEntry['relevance']
                 keyword['sentiment'] = keywordEntry['sentiment']['type']
                 if 'score' in keywordEntry['sentiment']:
@@ -145,6 +156,7 @@ class ClassifyMessage:
             curl_cmd = 'curl -G -u %s %s' % (NLC_CREDS, request)
             process = subprocess.Popen(shlex.split(curl_cmd), stdout=subprocess.PIPE)
             output = process.communicate()[0]
+            nlcClassification = None
             try:
                 nlcClassification = json.loads(output)
             except:
@@ -153,26 +165,38 @@ class ClassifyMessage:
                 print ('Response:')
                 print (output)
             nlc = {}
-            if nlcClassification['classes'] > 0:
+            if (nlcClassification is not None) and (nlcClassification['classes'] > 0):
                 nlc['text'] = text
                 nlc['class'] = nlcClassification['classes'][0]['class_name']
                 nlc['confidence'] = nlcClassification['classes'][0]['confidence']
                 intents.append(nlc)
         newClassification['Intents'] = intents
-
-        #allMessages.append(newClassification)
-
-        #deciding which messages will in fact trigger an action
-        """
-        if newClassification['Sentiment'] is not "neutral":
-            if newClassification['Action']['confidence'] > 0.90:
-                return newClassification
-        return "no_action"
-        """
+        newClassification['RelevantChannels'] = self.searchChannels(searchChannels)
+        
         if "true" in store:
             return newClassification
-        else:
+        else:            
+            print "Relevant channels: "+str(newClassification['RelevantChannels'])
             return self.postProcessor(newClassification)
+
+    def searchChannels(self, keywords):
+        channels = []
+        response_eco = ic.searchMessages(keywords, SLACK_API_TOKEN_ECO)
+        response_slacker = ic.searchMessages(keywords, SLACK_API_TOKEN_SLACKER)
+        if response_eco is not None:
+            channelFreq = {}
+            channelFreq = ic.getChannels(response_eco)
+            #print "ChannelFreq: "+str(channelFreq)
+            if channelFreq is not None:            
+                channels = ic.getTopNChannels(3, channelFreq)
+        if response_slacker is not None:
+            channelFreq = {}
+            channelFreq = ic.getChannels(response_slacker)
+            print "ChannelFreq: "+str(channelFreq)
+            if channelFreq is not None:            
+                channels.extend(ic.getTopNChannels(3, channelFreq))
+        return channels
+        
     def postProcessor(self,response):
         action = {}
         intents = Set()
@@ -187,12 +211,17 @@ class ClassifyMessage:
         if len(response['Intents']) > 1:
             # complex scenario
             for intent in response['Intents']:
-                intentName = intent['class']
+                intentName = intent['class']             
                 intents.add(intentName)
                 if ("box" in intentName) or ("badge" in intentName) or ("enterprise" in intentName) \
                     or ("travel" in intentName) or ("expenses" in intentName):
                     actionIntents.add(intentName)
                 elif ("task" in intentName) or ("repository" in intentName) or ("scheduling" in intentName) or ("analytics" in intentName):
+                    intentName = intent['class']
+                    intents.add(intentName)
+                if ("box" in intentName) or ("badge" in intentName) or ("enterprise" in intentName):
+                    actionIntents.add(intentName)
+                elif ("task" in intentName) or ("repository" in intentName) or ("scheduling" in intentName) or ("statsbot" in intentName):
                     botIntents.add(intentName)
             for intent in actionIntents:
                 if numberIntents == 0:
@@ -206,7 +235,7 @@ class ClassifyMessage:
                     urls = urls + ", " + self.getUrl(intent)
                 numberIntents += 1
             answer = "I can help you right away with " + actionIntentNames + ". Just follow the link(s): " + urls
-            numberIntents = 0
+            numberIntents = 0            
             for intent in botIntents:
                 if numberIntents == 0:
                     botIntentNames = intent.replace('_', ' ')
@@ -223,12 +252,12 @@ class ClassifyMessage:
             else:
                 answer = answer+" and for "+botIntentNames+" I found this Bot that can help you "+ urls
             action['Message'] = answer
-        else:
+        elif len(response['Intents']) == 1:
             intent = response['Intents'][0]
             intent = intent['class']
             messages = ["If I understand you correctly, you need help with ",
-                        "O.k. let's get you in better shape! It looks like you need help with ",
-                        "I'm more than happy to help you with ",
+                        "It looks like you need help with ",
+                        "I'm more than happy to help you with ", 
                         "It looks like you are looking for information about "]
             actionMessage = ["Here's what I found for you: ",
                              "This link might have the answer you are looking for ",
@@ -241,11 +270,38 @@ class ClassifyMessage:
             url = self.getUrl(intent)
             action['URL'] = url
             intent = intent.replace('_', ' ')
-            if ("box" in intent) or ("badge" in intent) or ("enterprise" in intent) or ("travel" in intent) or ("expenses" in intent):
+            if ("box" in intent) or ("badge" in intent) or ("enterprise" in intent) \
+                or ("travel" in intent) or ("expenses" in intent):
                 action['Message'] = actionMessage[random.randint(0, len(actionMessage) - 1)] + url.encode('ascii', 'ignore').decode('ascii')
             else:
                 action['Message'] = messages[random.randint(0, len(messages) - 1)] + intent + ". " + botMessage[
                     random.randint(0, len(botMessage) - 1)] + url.encode('ascii', 'ignore').decode('ascii')
+        else:
+            return None
+        #adding relevant channels to the answer        
+        try:
+            relevantChannels = response['RelevantChannels']
+            print str(relevantChannels)
+            if len(relevantChannels) > 0:
+                channels = ""
+                channelsMessage = "I also found some channels on which people mentioned this topic. You might want to consider taking a look! The channels are: "
+                numberOfChannels = 0                
+                for channel in relevantChannels:
+                    if numberOfChannels == 0:
+                        channels = channel
+                    elif numberOfChannels + 1 == len(relevantChannels):
+                        channels = channels + " and " + channel
+                    else:
+                        channels = channels + ", " + channel
+                    numberOfChannels += 1
+                print channels
+                channelsMessage = channelsMessage+channels
+                print channelsMessage
+                action['Message'] = str(action['Message'])+" "+channelsMessage
+                print "Final action: "+action['Message']
+                return action['Message']
+        except:
+            print "Trouble appending relevant channels to the answer"
         return action['Message']
 
     def getUrl(self,intent):
