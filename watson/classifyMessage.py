@@ -1,4 +1,17 @@
 # -*- coding: utf-8 -*-
+#	Copyright 2016 IBM Corporation
+#
+#   Licensed under the Apache License, Version 2.0 (the "License");
+#   you may not use this file except in compliance with the License.
+#   You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+#   Unless required by applicable law or agreed to in writing, software
+#   distributed under the License is distributed on an "AS IS" BASIS,
+#   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#   See the License for the specific language governing permissions and
+#   limitations under the License.
 """
 Created on Tue Apr 12 15:57:00 2016
 
@@ -15,12 +28,15 @@ from sets import Set
 
 from alchemyapi import AlchemyAPI
 from identifyConcepts import *
+from rtc.rtc_client import rtc_client
 
 alchemyapi = AlchemyAPI()
 ic = IdentifyConcepts()
+rtcClient = rtc_client()
 
 NLC_URL = "https://gateway.watsonplatform.net/natural-language-classifier/api/v1/classifiers/"
-NLC_CLASSIFIER="3a84cfx63-nlc-174"
+NLC_CLASSIFIER="3a84dfx64-nlc-632"
+#NLC_CLASSIFIER="3a84cfx63-nlc-174"
 #NLC_CLASSIFIER="36d0c7x60-nlc-115"
 NLC_CREDS = "0cff2e79-2b9e-4ed2-b200-598593755474:GIbzM6frd0Lg"
 
@@ -200,6 +216,10 @@ class ClassifyMessage:
         teams.append(channels)
         print "Teams: "+str(teams)
         return teams
+
+    def searchRtc(self, work_item_id):
+        return rtcClient.get_work_item_status(work_item_id)
+
         
     def postProcessor(self,response):
         action = {}
@@ -210,6 +230,7 @@ class ClassifyMessage:
         numberIntents = 0
         actionIntents = Set()
         botIntents = Set()
+        rtcIntents = Set()
         answer = ""
         intentName = ""
         if len(response['Intents']) > 1:
@@ -227,6 +248,8 @@ class ClassifyMessage:
                     actionIntents.add(intentName)
                 elif ("task" in intentName) or ("repository" in intentName) or ("scheduling" in intentName) or ("statsbot" in intentName):
                     botIntents.add(intentName)
+                elif ("rtc query" in intentName) or ("rtc create" in intentName):
+                    rtcIntents.add(intentName)
             for intent in actionIntents:
                 if numberIntents == 0:
                     actionIntentNames = intent.replace('_', ' ')
@@ -269,6 +292,7 @@ class ClassifyMessage:
             botMessage = ["I found a Bot that can help you ",
                           "Try this cool Bot ",
                           "Why don't you try this Bot "]
+
             # if response['Sentiment'] is "negative":
             action['Severity'] = "high"
             url = self.getUrl(intent)
@@ -277,6 +301,27 @@ class ClassifyMessage:
             if ("box" in intent) or ("badge" in intent) or ("enterprise" in intent) \
                 or ("travel" in intent) or ("expenses" in intent):
                 action['Message'] = actionMessage[random.randint(0, len(actionMessage) - 1)] + url.encode('ascii', 'ignore').decode('ascii')
+            elif "rtc query" in intent:
+                # Get the intent for RTC Query for a Work Item
+                queryIntent = response["Intents"]
+                txt = queryIntent[0]['text'].encode('ascii','ignore')
+                pos = re.search('\d',txt)
+                if pos is None:
+                    action['Message'] = 'Sorry. No work item number provided in the message'
+                else:
+                    idx = pos.start()
+                    if idx > 0:
+                        work_item = txt[idx:idx+5]
+                        work_item = work_item.strip();
+                    # Check status in RTC using OSLC API
+                    work_item_status = None
+                    if work_item is not None:
+                        work_item_status = self.searchRtc(work_item)
+                    if work_item_status is not None:
+                        action['Message'] = "According to RTC, the status of the work item " + work_item + "[ " + work_item_status["description"] + " ] is " + work_item_status["status"] + ".";
+                    else:
+                        status = " cannot be found or non-existent in RTC"
+                        action['Message'] = "Sorry, This work item " + work_item + status + "."
             else:
                 action['Message'] = messages[random.randint(0, len(messages) - 1)] + intent + ". " + botMessage[
                     random.randint(0, len(botMessage) - 1)] + url.encode('ascii', 'ignore').decode('ascii')

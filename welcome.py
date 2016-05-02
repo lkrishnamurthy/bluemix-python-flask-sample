@@ -1,4 +1,4 @@
-# Copyright 2015 IBM Corp. All Rights Reserved.
+# Copyright 2016 IBM Corp. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,6 +17,8 @@ import json
 from flask import Flask,Response, request
 from watson.classifyMessage import  ClassifyMessage
 
+# @author : Laksh Krishnamurthy (IBM Watson)
+
 classifier = ClassifyMessage()
 
 app = Flask(__name__)
@@ -33,7 +35,6 @@ def WelcomeToMyapp():
 
 @app.route('/classify')
 def classify():
-    print ("Request Received %s" % request.args['text'])
     text = request.args['text']
     store = request.args['store']
 
@@ -44,7 +45,6 @@ def classify():
 port = os.getenv('PORT', '5000')
 if __name__ == "__main__":
     print("Initializing...")
-    classifier.classifyText('blah','false')
     app.run(host='0.0.0.0', port=int(port))
 
 

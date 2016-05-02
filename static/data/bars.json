@@ -1,0 +1,15 @@
+{
+	"items": [{
+		"week": "04/18/2016",
+		"sentiments": [{
+			"label": "positive",
+			"count": 1000
+		},
+		{
+			"label": "negative",
+			"count": 200
+		}
+		]
+	}]
+
+}
