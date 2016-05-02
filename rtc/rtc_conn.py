@@ -1,3 +1,16 @@
+#	Copyright 2016 IBM Corporation
+#
+#   Licensed under the Apache License, Version 2.0 (the "License");
+#   you may not use this file except in compliance with the License.
+#   You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+#   Unless required by applicable law or agreed to in writing, software
+#   distributed under the License is distributed on an "AS IS" BASIS,
+#   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#   See the License for the specific language governing permissions and
+#   limitations under the License.
 '''   # it's one we've already seen THIS session
 Created on Mar 3, 2014
 
@@ -64,6 +77,7 @@ class RtcConnection(object):
             pool_connections=50, pool_maxsize=200000)
         self._adapter.max_retries = 20
         self._session = requests.session()
+
         self._session.mount("https://", self._adapter)
         self._session.mount("http://", self._adapter)
 
@@ -163,6 +177,7 @@ class RtcConnection(object):
             return results
         else:
             self._downloads_active.append(full_url)
+            self._session.head(full_url,allow_redirects=True)
             results = self._session.get(full_url, params=query_parms,
                                        verify=False, headers=headers)
             self._downloads_active.remove(full_url)
@@ -243,7 +258,8 @@ class RtcConnection(object):
 
     def post(self, url, data):
         ''' used for updating, logging in, etc '''
-        return self._session.post('%s/%s' % (self.rtc_base_url, url), data)
+        headers = {"Content-Type": "application/json"}
+        return self._session.post('%s/%s' % (self.rtc_base_url, url), data, headers)
 
     def set_skip_cache_thread(self, truefalse):
         '''
