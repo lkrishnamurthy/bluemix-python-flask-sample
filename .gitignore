@@ -12,3 +12,5 @@ bin/
 configs
 /.settings/
 watson/api_key.txt
+*.log
+*.db
