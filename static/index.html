@@ -1,24 +1,234 @@
 <!DOCTYPE html>
 <html>
+<meta charset="utf-8">
+<style>
 
-  <head>
-    <title>Python Flask Starter Application</title>
-    <meta charset="utf-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" href="static/stylesheets/style.css">
-  </head>
+body {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  width: 960px;
+  height: 500px;
+  position: relative;
+}
 
-  <body>
-    <table>
-      <tr>
-        <td style= "width:30%;">
-          <img class = "newappIcon" src="static/images/newapp-icon.png">
-        <td>
-            <h1>Hi there!</h1>
-          <p>Thanks for creating a
-            <span class = "blue">Python Flask Starter Application</span>.
-    </table>
-  </body>
+svg {
+	width: 100%;
+	height: 100%;
+}
 
+path.slice{
+	stroke-width:2px;
+}
+
+polyline{
+	opacity: .3;
+	stroke: black;
+	stroke-width: 2px;
+	fill: none;
+}
+
+</style>
+<body>
+<!--<button class="randomize">randomize</button>-->
+<center><h><b>Slack - Daily Sentiment Analysis Report</b></h></center>
+<select id="opts">
+		<option value="04-21-2016">04-21-2016</option>
+		<option value="04-22-2016">04-22-2016</option>
+		<option value="04-23-2016">04-23-2016</option>
+		<option value="04-24-2016">04-24-2016</option>
+		<option value="04-25-2016">04-25-2016</option>
+		<option value="04-26-2016">04-26-2016</option>
+		<option value="04-27-2016" selected="selected">04-27-2016</option>
+		<option value="04-28-2016">04-28-2016</option>
+</select>
+<!--<table>
+	<tr>
+		<td>Select the date:</td>
+		<td>
+		<select id="opts">
+		<option value="04-21-2016">04-21-2016</option>
+		<option value="04-22-2016">04-22-2016</option>
+		<option value="04-23-2016">04-23-2016</option>
+		<option value="04-24-2016">04-24-2016</option>
+		<option value="04-25-2016">04-25-2016</option>
+		<option value="04-26-2016">04-26-2016</option>
+		<option value="04-27-2016" selected="selected">04-27-2016</option>
+		<option value="04-28-2016">04-28-2016</option>
+		</select>
+		</td>
+	</tr>
+<tr>
+	<td></td>
+	<td>
+		<canvas width="600" height="500"></canvas>
+	</td>
+</tr>
+</table>-->
+<script src="http://d3js.org/d3.v3.min.js"></script>
+<script src="https://code.jquery.com/jquery-1.12.3.min.js" integrity="sha256-aaODHAgvwQW1bFOGXMeX+pC4PZIPsvn2h1sArYOhgXQ=" crossorigin="anonymous"></script>
+<script>
+
+var svg = d3.select("body")
+	.append("svg")
+	.append("g")
+
+svg.append("g")
+	.attr("class", "slices");
+svg.append("g")
+	.attr("class", "labels");
+svg.append("g")
+	.attr("class", "lines");
+
+var width = 960,
+    height = 450,
+	radius = Math.min(width, height) / 2;
+
+var pie = d3.layout.pie()
+	.sort(null)
+	.value(function(d) {
+		return d.count;
+	});
+
+var arc = d3.svg.arc()
+	.outerRadius(radius * 0.8)
+	.innerRadius(radius * 0.4);
+
+var outerArc = d3.svg.arc()
+	.innerRadius(radius * 0.9)
+	.outerRadius(radius * 0.9);
+
+svg.attr("transform", "translate(" + width / 2 + "," + height / 2 + ")");
+
+var key = function(d){ return d.data.label; };
+
+var color = d3.scale.ordinal()
+	.domain(["negative", "positive", "neutral", "consectetur", "adipisicing", "elit", "sed", "do", "eiusmod", "tempor", "incididunt"])
+	.range(["#98abc5", "#8a89a6", "#7b6888", "#6b486b", "#a05d56", "#d0743c", "#ff8c00"]);
+function randomData (){
+	var labels = color.domain();
+	return labels.map(function(label){
+		return { label: label, value: Math.random() }
+	});
+}
+var randomData = [
+  {
+    "label": "positive",
+    "count": 37
+  },
+  {
+    "label": "negative",
+    "count": 63
+  },
+  {
+    "label": "neutral",
+    "count": 58
+  }
+];
+
+change(randomData);
+
+jQuery("#opts").change(function(e) {
+    var myValue = jQuery(this).val();
+    getData(myValue);
+    //change(randomData);
+});
+
+function getData(rndData) {
+    jQuery.get('http://nr-slacktweet-demo.mybluemix.net/dashboard?date='+rndData, function(data) {
+       console.log(data, "The data returned");
+       change(data);
+    });
+}
+
+function change(data) {
+	/* ------- PIE SLICES -------*/
+	var slice = svg.select(".slices").selectAll("path.slice")
+		.data(pie(data), key);
+
+	slice.enter()
+		.insert("path")
+		.style("fill", function(d) { return color(d.data.label); })
+		.attr("class", "slice");
+
+	slice
+		.transition().duration(1000)
+		.attrTween("d", function(d) {
+			this._current = this._current || d;
+			var interpolate = d3.interpolate(this._current, d);
+			this._current = interpolate(0);
+			return function(t) {
+				return arc(interpolate(t));
+			};
+		})
+
+	slice.exit()
+		.remove();
+
+	/* ------- TEXT LABELS -------*/
+
+	var text = svg.select(".labels").selectAll("text")
+		.data(pie(data), key);
+
+	text.enter()
+		.append("text")
+		.attr("dy", ".35em")
+		.text(function(d) {
+			return d.data.label;
+		});
+
+	function midAngle(d){
+		return d.startAngle + (d.endAngle - d.startAngle)/2;
+	}
+
+	text.transition().duration(1000)
+		.attrTween("transform", function(d) {
+			this._current = this._current || d;
+			var interpolate = d3.interpolate(this._current, d);
+			this._current = interpolate(0);
+			return function(t) {
+				var d2 = interpolate(t);
+				var pos = outerArc.centroid(d2);
+				pos[0] = radius * (midAngle(d2) < Math.PI ? 1 : -1);
+				return "translate("+ pos +")";
+			};
+		})
+		.styleTween("text-anchor", function(d){
+			this._current = this._current || d;
+			var interpolate = d3.interpolate(this._current, d);
+			this._current = interpolate(0);
+			return function(t) {
+				var d2 = interpolate(t);
+				return midAngle(d2) < Math.PI ? "start":"end";
+			};
+		});
+
+	text.exit()
+		.remove();
+
+	/* ------- SLICE TO TEXT POLYLINES -------*/
+
+	var polyline = svg.select(".lines").selectAll("polyline")
+		.data(pie(data), key);
+
+	polyline.enter()
+		.append("polyline");
+
+	polyline.transition().duration(1000)
+		.attrTween("points", function(d){
+			this._current = this._current || d;
+			var interpolate = d3.interpolate(this._current, d);
+			this._current = interpolate(0);
+			return function(t) {
+				var d2 = interpolate(t);
+				var pos = outerArc.centroid(d2);
+				pos[0] = radius * 0.95 * (midAngle(d2) < Math.PI ? 1 : -1);
+				return [arc.centroid(d2), outerArc.centroid(d2), pos];
+			};
+		});
+
+	polyline.exit()
+		.remove();
+};
+
+</script>
+</body>
 </html>
