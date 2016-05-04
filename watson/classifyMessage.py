@@ -340,7 +340,7 @@ class ClassifyMessage:
             action['URL'] = url
             intent = intent.replace('_', ' ')
             if ("box" in intent) or ("badge" in intent) or ("enterprise" in intent) \
-                or ("travel" in intent) or ("expenses" in intent):
+                or ("travel" in intent) or ("expenses" in intent) or ("assets" in intent):
                 action['Message'] = actionMessage[random.randint(0, len(actionMessage) - 1)] + url.encode('ascii', 'ignore').decode('ascii')
             elif "rtc" in intent:
                 if "query" in intent:
@@ -360,10 +360,10 @@ class ClassifyMessage:
                         if work_item is not None:
                             work_item_status = self.searchRtc(work_item)
                         if work_item_status is not None:
-                            action['Message'] = "According to RTC, the status of the work item " + work_item + "[ " + work_item_status["description"] + " ] is " + work_item_status["status"] + ".";
+                            action['Message'] = "According to RTC, the status of the work item " + work_item + " [ " + work_item_status["description"] + " ] is " + work_item_status["status"] + ".";
                         else:
-                            status = " cannot be found or non-existent in RTC"
-                            action['Message'] = "Sorry, This work item " + work_item + status + "."
+                            status = " cannot be found or is non-existent in RTC"
+                            action['Message'] = "Sorry, work item " + work_item + status + "."
                 elif "create" in intent:
                     createIntent = response["Intents"]
                     description = re.findall("\"(.+)\"", createIntent[0]['text'].encode('ascii','ignore'))
