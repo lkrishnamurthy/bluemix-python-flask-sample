@@ -148,11 +148,11 @@ class rtc_client(object):
         #
         # Define login credentials
         #
-        self.user = "<UserName>"
-        self.password = "<Password>"
+        self.user = "psmoraes@us.ibm.com"
+        self.password = "40deu442be"
         self.rtc_url = '<RTC_URL>'  # default to override
         #self.jazz_url = 'https://jazzop09.rtp.raleigh.ibm.com:9943/jazz'
-        self.jazz_url = '<JAZZ_URL>'
+        self.jazz_url = 'https://hub.jazz.net/ccm34/'
 
         #
         # Define key pieces of information
@@ -187,7 +187,7 @@ class rtc_client(object):
         """
         logging.exception('Handling caught SIGINT, cleaning up')
         # traceback.print_exc(file=sys.stdout)
-        if self.rtc_conn.is_dirty:  # don't save bogus data
+        if self.rtc_conn is not None and self.rtc_conn.is_dirty:  # don't save bogus data
             self.__del__()
         raise RuntimeError
 ##################

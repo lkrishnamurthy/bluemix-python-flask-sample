@@ -18,13 +18,11 @@ Created on Tue Apr 12 15:57:00 2016
 @author: priscillamoraes
 """
 
-from sets import Set
 import json
 import subprocess
 import shlex
 import glob
 import os
-import itertools
 
 from alchemyapi import AlchemyAPI
 alchemyapi = AlchemyAPI()
