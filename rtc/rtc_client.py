@@ -148,8 +148,8 @@ class rtc_client(object):
         #
         # Define login credentials
         #
-        self.user = "psmoraes@us.ibm.com"
-        self.password = "40deu442be"
+        self.user = "<user>"
+        self.password = "<password>"
         self.rtc_url = '<RTC_URL>'  # default to override
         #self.jazz_url = 'https://jazzop09.rtp.raleigh.ibm.com:9943/jazz'
         self.jazz_url = 'https://hub.jazz.net/ccm34/'
