@@ -35,8 +35,8 @@ ic = IdentifyConcepts()
 rtcClient = rtc_client()
 
 NLC_URL = "https://gateway.watsonplatform.net/natural-language-classifier/api/v1/classifiers/"
-#NLC_CLASSIFIER="3a84dfx64-nlc-2405"
-NLC_CLASSIFIER="3a84cfx63-nlc-3072"
+NLC_CLASSIFIER="3a84dfx64-nlc-2405"
+#NLC_CLASSIFIER="3a84dfx64-nlc-632"
 NLC_CREDS = "0cff2e79-2b9e-4ed2-b200-598593755474:GIbzM6frd0Lg"
 
 RE_URL = "https://gateway.watsonplatform.net/relationship-extraction-beta/api/v1/sire/0"
@@ -70,10 +70,10 @@ class ClassifyMessage:
         #Call Relatioship Extraction and get the sentences broken up
         #getting the sentences from parse
         text = text.encode('ascii', 'ignore').decode('ascii')
-        curl_cmd = 'curl -X POST -u %s %s -d "sid=ie-en-news" -d "txt=%s"' % (RE_CREDS, RE_URL, text)
+        #curl_cmd = 'curl -X POST -u %s %s -d "sid=ie-en-news" -d "txt=%s"' % (RE_CREDS, RE_URL, text)
 
         try:
-            #curl_cmd = 'curl -F svcid=ie.en_klue3_crf_coord -F text="%s" %s' % (text, NEW_RE_URL)
+            curl_cmd = 'curl -F svcid=ie.en_klue3_crf_coord -F text="%s" %s' % (text, NEW_RE_URL) 
             process = subprocess.Popen(shlex.split(curl_cmd), stdout=subprocess.PIPE)
             output = process.communicate()[0]
             f = open(OUTPUT_DIR+'/parse.txt', 'w+')
@@ -84,40 +84,33 @@ class ClassifyMessage:
             print (curl_cmd)
             print ('Response:')
             print (output)
-
+        
         try:
-            parsedXML = xml.etree.ElementTree.parse(OUTPUT_DIR + '/parse.txt').getroot()
-            doc = parsedXML.find('doc')
-            sents = doc.find('sents')
+            print "Coming here"
+            parsedXML = xml.etree.ElementTree.parse(OUTPUT_DIR+'/parse.txt').getroot()
+            print parsedXML
+            #doc = parsedXML.find('doc')
+            sents = parsedXML.find('sents')
             for sentence in sents.findall('sent'):
                 surface = sentence.find('text').text
                 parse = sentence.find('parse').text
-                # find main clauses separated by comma
-                matchesList = re.findall('\,\_\, \[VP', parse)
-                if len(matchesList) > 0:
-                    for match in matchesList:
-                        # break the sentence into individual clauses
-                        tempClauses.extend(surface.split(","))
+                matches = re.match(r"(.+) \[VP\-CC (.+)", parse)
+                if matches:
+                    groups = matches.groups()
+                    groupNumber = 0
+                    for group in groups:
+                        words = re.findall('[a-zA-Z0-9]+_',group)
+                        clause = ' '.join(words)
+                        clause = clause.replace('_','')
+                        print "Clause: "+clause
+                        tempClauses.append(clause)
+                        groupNumber += 1
                 else:
                     tempClauses.append(surface)
-                for clause in tempClauses:
-                    # find a coordinating conjunction connective
-                    matchesCC = re.findall('[a-z]+_CC', parse)
-                    if len(matchesCC) > 0:
-                        for match in matchesCC:
-                            # remove the connective syntactic tag
-                            match = match.replace('_CC', '')
-                            # break the sentence into individual clauses
-                            clauses.extend(clause.split(" " + match + " "))
-                    else:
-                        clauses.append(clause)
-            uniqueClauses = Set()
-            for clause in clauses:
-                uniqueClauses.add(clause)
-            clauses = list(uniqueClauses)
-            print "Clauses: " + str(len(clauses))
+            clauses = tempClauses
+            print "Clauses: "+str(len(clauses))
             print clauses
-
+    
             newClassification['Message'] = text
         except:
             print ('Exception when obtaining the parse from RE service.')
@@ -248,8 +241,7 @@ class ClassifyMessage:
                 intentName = intent['class']             
                 intents.add(intentName)
                 if ("box" in intentName) or ("badge" in intentName) or ("enterprise" in intentName) \
-                    or ("travel" in intentName) or ("expenses" in intentName) or ("assets" in intentName) \
-                    or ("procurement" in intent):
+                    or ("travel" in intentName) or ("expenses" in intentName) or ("assets" in intentName):
                     actionIntents.add(intentName)
                 elif ("repository" in intentName) or ("scheduling" in intentName) or ("analytics" in intentName):
                     botIntents.add(intentName)
@@ -348,17 +340,8 @@ class ClassifyMessage:
             action['URL'] = url
             intent = intent.replace('_', ' ')
             if ("box" in intent) or ("badge" in intent) or ("enterprise" in intent) \
-                or ("travel" in intent) or ("expenses" in intent) or ("assets" in intent) \
-                or ("procurement" in intent):
+                or ("travel" in intent) or ("expenses" in intent) or ("assets" in intent):
                 action['Message'] = actionMessage[random.randint(0, len(actionMessage) - 1)] + url.encode('ascii', 'ignore').decode('ascii')
-            elif "po" in intent:
-                queryIntent = response["Intents"]
-                txt = queryIntent[0]['text'].encode('ascii', 'ignore')
-                pos = re.findall('(\d+)', txt)
-                if len(pos) > 0:
-                    action['Message'] = "Yes. PO "+pos[0]+" completed. Item is in stock. Shipped Date is 05/07/2016. Delivery estimated at 05/10/2016."
-                else:
-                    action['Message'] = "For status of purchase orders, please provide a order number."
             elif "rtc" in intent:
                 if "query" in intent:
                     # Get the intent for RTC Query for a Work Item
@@ -382,23 +365,20 @@ class ClassifyMessage:
                             status = " cannot be found or is non-existent in RTC"
                             action['Message'] = "Sorry, work item " + work_item + status + "."
                 elif "create" in intent:
-                    response = self.createWorkItem("Title test", "Summary test")
-                    print response
-                    action['Message'] = "Work item created successfully"
-                    #createIntent = response["Intents"]
-                    #description = re.findall("\"(.+)\"", createIntent[0]['text'].encode('ascii','ignore'))
-                    #if len(description) > 0:
-                        #titleSummary = description.split(":")
-                        #if len(titleSummary == 2):
-                        #    wiCreationResponse = self.createWorkItem(titleSummary[0], titleSummary[1])
-                        #else:
-                        #    action['Message'] = 'Please provide the information for the work item as: "title of work item : summary of the work item"'
-                        #if wiCreationResponse is None:
-                        #    action['Message'] = "Unable to create work item"
-                        #else:
-                        #    action['Message'] = "Work item created successfully"
-                    #else:
-                    #    action['Message'] = 'Please provide the information for the work item as: "title of work item : summary of the work item"'
+                    createIntent = response["Intents"]
+                    description = re.findall("\"(.+)\"", createIntent[0]['text'].encode('ascii','ignore'))
+                    if len(description) > 0:
+                        titleSummary = description.split(":")
+                        if len(titleSummary == 2):
+                            wiCreationResponse = self.createWorkItem(titleSummary[0], titleSummary[1])
+                        else:
+                            action['Message'] = 'Please provide the information for the work item as: "title of work item : summary of the work item"'
+                        if wiCreationResponse is None:
+                            action['Message'] = "Unable to create work item"
+                        else:
+                            action['Message'] = "Work item created successfully"
+                    else:
+                        action['Message'] = 'Please provide the information for the work item as: "title of work item : summary of the work item"'
 
             else:
                 action['Message'] = messages[random.randint(0, len(messages) - 1)] + intent + ". " + botMessage[
@@ -459,8 +439,6 @@ class ClassifyMessage:
             url = "http://w3-01.ibm.com/hr/web/expenses/"
         elif intent == 'assets':
             url = "https://w3-03.sso.ibm.com/tools/assets/eamt/index.jsp"
-        elif intent == 'procurement':
-            url = "https://w3-01.sso.ibm.com/procurement/buyondemand/"
         else:
             url = None
         return url
