@@ -66,6 +66,7 @@ class ClassifyMessage:
         tempClauses = []
         intents = []
         searchChannels = ""
+        confidence = 100
 
         #Call Relatioship Extraction and get the sentences broken up
         #getting the sentences from parse
@@ -187,6 +188,8 @@ class ClassifyMessage:
                 nlc['text'] = text
                 nlc['class'] = nlcClassification['classes'][0]['class_name']
                 nlc['confidence'] = nlcClassification['classes'][0]['confidence']
+                if nlc['confidence'] < confidence:
+                    confidence = nlc['confidence']
                 intents.append(nlc)
         newClassification['Intents'] = intents
         newClassification['RelevantChannels'] = self.searchChannels(searchChannels)
@@ -195,7 +198,7 @@ class ClassifyMessage:
             return newClassification
         else:            
             print "Relevant channels: "+str(newClassification['RelevantChannels'])
-            return self.postProcessor(newClassification)
+            return self.postProcessor(newClassification, confidence)
 
     def searchChannels(self, keywords):
         channels = []
@@ -225,7 +228,7 @@ class ClassifyMessage:
     def createWorkItem(self, title, summary):
         return rtcClient.create_work_item(title, summary)
         
-    def postProcessor(self,response):
+    def postProcessor(self,response, confidence):
         action = {}
         intents = Set()
         actionIntentNames = ""
@@ -241,11 +244,16 @@ class ClassifyMessage:
         answer = ""
         intentName = ""
 
+        if (confidence > 80) and (confidence < 90):
+            answer = "I am in training but here's my best guess: "
+        if confidence <= 80:
+            action['Message'] = "I have no idea..."
+            return action['Message']
         if len(response['Intents']) > 1:
 
             # complex scenario: this loop is just separating the different intent types into sets
             for intent in response['Intents']:
-                intentName = intent['class']             
+                intentName = intent['class']
                 intents.add(intentName)
                 if ("box" in intentName) or ("badge" in intentName) or ("enterprise" in intentName) \
                     or ("travel" in intentName) or ("expenses" in intentName) or ("assets" in intentName) \
@@ -275,7 +283,7 @@ class ClassifyMessage:
                     urls = urls + ", " + self.getUrl(intent)
                 numberIntents += 1
             if numberIntents > 0:
-                answer = "I can help you right away with " + actionIntentNames + ". Just follow the link(s): " + urls
+                answer = answer+"I can help you right away with " + actionIntentNames + ". Just follow the link(s): " + urls
 
             # just providing a different answer when the intent needs a bot
             numberIntents = 0
@@ -351,14 +359,14 @@ class ClassifyMessage:
                 or ("travel" in intent) or ("expenses" in intent) or ("assets" in intent) \
                 or ("procurement" in intent):
                 action['Message'] = actionMessage[random.randint(0, len(actionMessage) - 1)] + url.encode('ascii', 'ignore').decode('ascii')
-            elif "po" in intent:
-                queryIntent = response["Intents"]
-                txt = queryIntent[0]['text'].encode('ascii', 'ignore')
-                pos = re.findall('(\d+)', txt)
-                if len(pos) > 0:
-                    action['Message'] = "Yes. PO "+pos[0]+" completed. Item is in stock. Shipped Date is 05/07/2016. Delivery estimated at 05/10/2016."
-                else:
-                    action['Message'] = "For status of purchase orders, please provide a order number."
+            #elif "po" in intent:
+            #    queryIntent = response["Intents"]
+            #    txt = queryIntent[0]['text'].encode('ascii', 'ignore')
+            #    pos = re.findall('(\d+)', txt)
+            #    if len(pos) > 0:
+            #        action['Message'] = "Yes. PO "+pos[0]+" completed. Item is in stock. Shipped Date is 05/07/2016. Delivery estimated at 05/10/2016."
+            #    else:
+            #        action['Message'] = "For status of purchase orders, please provide an order number."
             elif "rtc" in intent:
                 if "query" in intent:
                     # Get the intent for RTC Query for a Work Item
@@ -381,10 +389,10 @@ class ClassifyMessage:
                         else:
                             status = " cannot be found or is non-existent in RTC"
                             action['Message'] = "Sorry, work item " + work_item + status + "."
-                elif "create" in intent:
-                    response = self.createWorkItem("Title test", "Summary test")
-                    print response
-                    action['Message'] = "Work item created successfully"
+                #elif "create" in intent:
+                #    response = self.createWorkItem("Title test", "Summary test")
+                #    print response
+                #    action['Message'] = "Work item created successfully"
                     #createIntent = response["Intents"]
                     #description = re.findall("\"(.+)\"", createIntent[0]['text'].encode('ascii','ignore'))
                     #if len(description) > 0:
