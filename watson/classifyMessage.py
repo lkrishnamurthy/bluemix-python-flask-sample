@@ -408,7 +408,8 @@ class ClassifyMessage:
                         #    action['Message'] = "Work item created successfully"
                     #else:
                     #    action['Message'] = 'Please provide the information for the work item as: "title of work item : summary of the work item"'
-
+                else:
+                    action['Message'] = "I see you need to do something with RTC but could not quite get what it is."
             else:
                 action['Message'] = messages[random.randint(0, len(messages) - 1)] + intent + ". " + botMessage[
                     random.randint(0, len(botMessage) - 1)] + url.encode('ascii', 'ignore').decode('ascii')
