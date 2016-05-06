@@ -58,7 +58,8 @@ class ClassifyMessage:
             .replace('$', ' ').replace('%', ' ').replace('^', ' ').replace('&', ' ').replace('*', ' ').replace('(', ' ') \
             .replace(')', ' ').replace('<', ' ').replace('>', ' ').replace('/', ' ').replace('\\', ' ').replace('[',' ') \
             .replace(']', ' ').replace('{', ' ').replace('}', ' ').replace('|', ' ').replace(':', ' ').replace(';', ' ') \
-            .replace(',', ' ').replace('-', ' ').replace('+', ' ').replace('=', ' ').replace('~', ' ').replace('_',' ').replace('\'', '')
+            .replace(',', ' ').replace('-', ' ').replace('+', ' ').replace('=', ' ').replace('~', ' ') \
+            .replace('_',' ').replace('\'', '')
 
     def classifyText(self, text,store):
         newClassification = {}
@@ -66,7 +67,7 @@ class ClassifyMessage:
         tempClauses = []
         intents = []
         searchChannels = ""
-        confidence = 100
+        confidence = 1
 
         #Call Relatioship Extraction and get the sentences broken up
         #getting the sentences from parse
@@ -244,9 +245,9 @@ class ClassifyMessage:
         answer = ""
         intentName = ""
 
-        if (confidence > 80) and (confidence < 90):
+        if (confidence > 0.8) and (confidence < 0.9):
             answer = "I am in training but here's my best guess: "
-        if confidence <= 80:
+        if confidence <= 0.8:
             action['Message'] = "I have no idea..."
             return action['Message']
         if len(response['Intents']) > 1:
