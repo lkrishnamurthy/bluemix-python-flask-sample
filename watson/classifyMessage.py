@@ -53,13 +53,13 @@ class ClassifyMessage:
     def __init__(self):
         print("Initialized Classifier")
 
-    def stripSpecial(myString):
-        return myString.replace('\n', ' ').replace('"', ' ').replace('!', ' ').replace('@', ' ').replace('#', ' ') \
-            .replace('$', ' ').replace('%', ' ').replace('^', ' ').replace('&', ' ').replace('*', ' ').replace('(', ' ') \
-            .replace(')', ' ').replace('<', ' ').replace('>', ' ').replace('/', ' ').replace('\\', ' ').replace('[',' ') \
-            .replace(']', ' ').replace('{', ' ').replace('}', ' ').replace('|', ' ').replace(':', ' ').replace(';', ' ') \
-            .replace(',', ' ').replace('-', ' ').replace('+', ' ').replace('=', ' ').replace('~', ' ') \
-            .replace('_',' ').replace('\'', '')
+    def stripSpecial(self, myString):
+        return myString.replace('\n', ' ').replace('"', '').replace('!', '').replace('@', '').replace('\#', '') \
+            .replace('$', '').replace('%', '').replace('^', '').replace('&', '').replace('*', '').replace('(', '') \
+            .replace(')', '').replace('<', '').replace('>', '').replace('/', '').replace('\\', '').replace('[','') \
+            .replace(']', '').replace('{', '').replace('}', '').replace('|', '').replace(':', '').replace(';', '') \
+            .replace(',', ' ').replace('-', '').replace('+', '').replace('=', '').replace('~', '') \
+            .replace('_','').replace('\'', '').replace('`','').replace("'","")
 
     def classifyText(self, text,store):
         newClassification = {}
@@ -72,6 +72,7 @@ class ClassifyMessage:
         #Call Relatioship Extraction and get the sentences broken up
         #getting the sentences from parse
         text = text.encode('ascii', 'ignore').decode('ascii')
+        text = self.stripSpecial(text)
         curl_cmd = 'curl -X POST -u %s %s -d "sid=ie-en-news" -d "txt=%s"' % (RE_CREDS, RE_URL, text)
 
         try:
