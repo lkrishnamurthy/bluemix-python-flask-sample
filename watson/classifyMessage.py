@@ -246,10 +246,11 @@ class ClassifyMessage:
         answer = ""
         intentName = ""
 
+        lowConfidenceMessage = ["I have no idea", "Han?", "You talking to me?", "I'm not trained on that yet...", "I have no idea"]
         if (confidence > 0.8) and (confidence < 0.9):
             answer = "I am in training but here's my best guess: "
         if confidence <= 0.8:
-            action['Message'] = "I have no idea..."
+            action['Message'] = lowConfidenceMessage[random.randint(0, len(lowConfidenceMessage) - 1)]
             return action['Message']
         if len(response['Intents']) > 1:
 
