@@ -18,6 +18,9 @@ Created on Tue Apr 12 15:57:00 2016
 @author: priscillamoraes
 """
 
+import json
+import subprocess
+import shlex
 import xml.etree.ElementTree
 import re
 import random
@@ -25,15 +28,16 @@ from sets import Set
 
 from alchemyapi import AlchemyAPI
 from identifyConcepts import *
+from services import *
 from rtc.rtc_client import rtc_client
-from cloudant.client import Cloudant
-from cloudant.result import Result, ResultByKey
 
 alchemyapi = AlchemyAPI()
 ic = IdentifyConcepts()
 rtcClient = rtc_client()
 
 NLC_URL = "https://gateway.watsonplatform.net/natural-language-classifier/api/v1/classifiers/"
+#NLC_CLASSIFIER="3a84dfx64-nlc-2405"
+NLC_CLASSIFIER="3a84cfx63-nlc-3072"
 NLC_CREDS = "0cff2e79-2b9e-4ed2-b200-598593755474:GIbzM6frd0Lg"
 
 RE_URL = "https://gateway.watsonplatform.net/relationship-extraction-beta/api/v1/sire/0"
@@ -45,20 +49,12 @@ SLACK_API_TOKEN_SLACKER="xoxp-34402827254-34409890672-36426885575-e8fce120c6"
 
 OUTPUT_DIR = "Slack/results"
 
-COUCHDB_USER="c36550aa-523c-46b7-b4a7-5314df97087e-bluemix"
-COUCHDB_PASSWORD="73ef275e1f46d75ee425e4c10ae2f1a49ed0b45b3ca5e8fe5f7a38d585cee26f"
-COUCHDB_URL="http://c36550aa-523c-46b7-b4a7-5314df97087e-bluemix.cloudant.com"
-
-
 class ClassifyMessage:
-
-
     def __init__(self):
         print("Initialized Classifier")
 
-    def classifyText(self, text,store):
-        NLC_CLASSIFIER = self.getClassifierId()
 
+    def classifyText(self, text,store):
         newClassification = {}
         clauses = []
 
@@ -74,7 +70,7 @@ class ClassifyMessage:
         newClassification, searchChannels = self.getAlchemyKeywords(newClassification, text)
 
         #classify the intent of the different clausess
-        newClassification, confidence = self.nlcService(newClassification, clauses, searchChannels, NLC_CLASSIFIER)
+        newClassification, confidence = self.nlcService(newClassification, clauses, searchChannels)
         
         if "true" in store:
             return newClassification
@@ -83,6 +79,12 @@ class ClassifyMessage:
             return self.postProcessor(newClassification, confidence)
 
 
+    def searchRtc(self, work_item_id):
+        return rtcClient.get_work_item_status(work_item_id)
+
+    def createWorkItem(self, title, summary):
+        return rtcClient.create_work_item(title, summary)
+        
     def postProcessor(self,response, confidence):
         action = {}
         intents = Set()
@@ -132,13 +134,13 @@ class ClassifyMessage:
             for intent in actionIntents:
                 if numberIntents == 0:
                     actionIntentNames = intent.replace('_', ' ')
-                    urls = self.getUrl(intent)['url']
+                    urls = self.getUrl(intent)
                 elif numberIntents + 1 == len(actionIntents):
                     actionIntentNames = actionIntentNames + " and " + intent.replace('_', ' ')
-                    urls = urls + " and " + self.getUrl(intent)['url']
+                    urls = urls + " and " + self.getUrl(intent)
                 else:
                     actionIntentNames = actionIntentNames + ", " + intent.replace('_', ' ')
-                    urls = urls + ", " + self.getUrl(intent)['url']
+                    urls = urls + ", " + self.getUrl(intent)
                 numberIntents += 1
             if numberIntents > 0:
                 answer = answer+"I can help you right away with " + actionIntentNames + ". Just follow the link(s): " + urls
@@ -148,13 +150,13 @@ class ClassifyMessage:
             for intent in botIntents:
                 if numberIntents == 0:
                     botIntentNames = intent.replace('_', ' ')
-                    urls = self.getUrl(intent)['bot']
+                    urls = self.getUrl(intent)
                 elif numberIntents + 1 == len(botIntents):
                     botIntentNames = botIntentNames + " and " + intent.replace('_', ' ')
-                    urls = urls + " and " + self.getUrl(intent)['bot']
+                    urls = urls + " and " + self.getUrl(intent)
                 else:
                     botIntentNames = botIntentNames + ", " + intent.replace('_', ' ')
-                    urls = urls + ", " + self.getUrl(intent)['bot']
+                    urls = urls + ", " + self.getUrl(intent)
                 numberIntents += 1
             if len(botIntents) > 0 and answer is not "":
                 answer = answer+" and for "+botIntentNames+" I found cool Bots that can help "+ urls
@@ -199,7 +201,7 @@ class ClassifyMessage:
             intent = intent['class']
             messages = ["If I understand you correctly, you need help with ",
                         "It looks like you need help with ",
-                        "I'm more than happy to help you with ",
+                        "I'm more than happy to help you with ", 
                         "It looks like you are looking for information about "]
             actionMessage = ["Here's what I found for you: ",
                              "This link might have the answer you are looking for ",
@@ -210,12 +212,12 @@ class ClassifyMessage:
 
             # if response['Sentiment'] is "negative":
             action['Severity'] = "high"
+            url = self.getUrl(intent)
+            action['URL'] = url
+            intent = intent.replace('_', ' ')
             if ("box" in intent) or ("badge" in intent) or ("enterprise" in intent) \
                 or ("travel" in intent) or ("expenses" in intent) or ("assets" in intent) \
                 or ("procurement" in intent):
-                url = self.getUrl(intent)['url']
-                action['URL'] = url
-                intent = intent.replace('_', ' ')
                 action['Message'] = actionMessage[random.randint(0, len(actionMessage) - 1)] + url.encode('ascii', 'ignore').decode('ascii')
             #elif "po" in intent:
             #    queryIntent = response["Intents"]
@@ -280,21 +282,21 @@ class ClassifyMessage:
             if len(relevantChannels[0]) + len(relevantChannels[1]) > 0:
                 channels = ""
                 channelsMessage = "I also found other channels discussing about this post. Consider joining the channels: ["
-                numberOfChannels = 0
+                numberOfChannels = 0                
                 for channel in relevantChannels[1]:
                     if numberOfChannels == 0:
                         channels = "SlackerDemo:"+channel
-        #                    elif numberOfChannels + 1 == len(relevantChannels):
-        #                        channels = channels + " and " + channel
+#                    elif numberOfChannels + 1 == len(relevantChannels):
+#                        channels = channels + " and " + channel
                     else:
                         channels = channels + ", " + "SlackerDemo:"+channel
                     numberOfChannels += 1
-                print "Channels after SlackerDemo "+channels
+                print "Channels after SlackerDemo "+channels 
                 for channel in relevantChannels[0]:
                     if channels is "":
                         channels = "IBM Watson Ecosystem:"+channel
-        #                    elif numberOfChannels + 1 == len(relevantChannels):
-        #                        channels = channels + " and " + channel
+#                    elif numberOfChannels + 1 == len(relevantChannels):
+#                        channels = channels + " and " + channel
                     else:
                         channels = channels + ", " + "IBM Watson Ecosystem:"+channel
                 print channels
@@ -307,14 +309,7 @@ class ClassifyMessage:
             print "Trouble appending relevant channels to the answer"
         return action['Message']
 
-    def searchRtc(self, work_item_id):
-        return rtcClient.get_work_item_status(work_item_id)
-
-    def createWorkItem(self, title, summary):
-        return rtcClient.create_work_item(title, summary)
-
-        # Calls Relatioship Extraction service and writes response to the file parse.txt
-
+    # Calls Relatioship Extraction service and writes response to the file parse.txt
     # under the output directory (for future use by other methods)
     def reService(self, text):
         text = text.encode('ascii', 'ignore').decode('ascii')
@@ -368,7 +363,7 @@ class ClassifyMessage:
             for keywordEntry in keywordResponse['keywords']:
                 keyword = {}
                 keyword['text'] = keywordEntry['text'].encode('utf-8')
-                searchChannels += keywordEntry['text'].encode('utf-8') + " "
+                searchChannels += keywordEntry['text'].encode('utf-8')+" "
                 keyword['relevance'] = keywordEntry['relevance']
                 keyword['sentiment'] = keywordEntry['sentiment']['type']
                 if 'score' in keywordEntry['sentiment']:
@@ -422,13 +417,13 @@ class ClassifyMessage:
 
     # getting the NLC classification. It needs to be done by each clause individually
     # returns a list of nlc outputs and append it to the final object
-    def nlcService(self, newClassification, clauses, searchChannels, NLC_CLASSIFIER):
+    def nlcService(self, newClassification, clauses, searchChannels):
         intents = []
         confidence = 1
         for clause in clauses:
             text = clause.encode('ascii', 'ignore').decode('ascii')
-            nlcText = text.replace(" ", "%20")
-            request = NLC_URL + NLC_CLASSIFIER + "/classify?text=" + nlcText
+            nlcText = text.replace(" ","%20")
+            request = NLC_URL+NLC_CLASSIFIER+"/classify?text="+nlcText
             request = request.strip()
             curl_cmd = 'curl -G -u %s %s' % (NLC_CREDS, request)
             process = subprocess.Popen(shlex.split(curl_cmd), stdout=subprocess.PIPE)
@@ -475,80 +470,31 @@ class ClassifyMessage:
     def queryDB(self, host, dbName, selector, fields):
         return None
 
-    def getClassifierId(self):
-        client = Cloudant(COUCHDB_USER, COUCHDB_PASSWORD, url=COUCHDB_URL)
+    def getUrl(self,intent):
+        if intent == 'repository':
+            url = "https://slackerdemo.slack.com/apps/new/A0F7XDU93-hubot"
+        elif intent == 'scheduling':
+            url = "https://meekan.com/slack/?ref=slackappstore"
+        elif intent == 'enterprise_directory':
+            url = "https://w3-03.sso.ibm.com/bluepages/index.wss"
+        elif intent == 'analytics':
+            url = "https://statsbot.co/?ref=slackappstore"
+        elif intent == 'badge':
+            url = "http://w3-03.ibm.com/security/secweb.nsf/ContentDocsByCtryTitle/United+States~Badge+request+and+administration"
+        elif intent == 'box_notes':
+            url = "https://www.box.com/notes/"
+        elif intent == 'travel':
+            url = "http://w3-01.ibm.com/hr/web/travel/index.html"
+        elif intent == 'expenses':
+            url = "http://w3-01.ibm.com/hr/web/expenses/"
+        elif intent == 'assets':
+            url = "https://w3-03.sso.ibm.com/tools/assets/eamt/index.jsp"
+        elif intent == 'procurement':
+            url = "https://w3-01.sso.ibm.com/procurement/buyondemand/"
+        else:
+            url = None
+        return url
 
-        # Connect to the server
-        client.connect()
-
-        classifierDB = client['classifierdb']
-        result_collection = Result(classifierDB.all_docs, include_docs=True)
-
-        for result in result_collection:
-            print result['doc']
-            if result['doc'] is not None:
-                if 'status' in result['doc'] and result['doc']['status'] == 'A':
-                    classifier = result['doc']['classifierId']
-        print "Classifier: " + str(classifier)
-
-        # Disconnect from the server
-        client.disconnect()
-        return classifier
-
-    def getUrl(self, intent):
-        action = {}
-        client = Cloudant(COUCHDB_USER, COUCHDB_PASSWORD, url=COUCHDB_URL)
-
-        # Connect to the server
-        client.connect()
-
-        actionsDB = client['actions']
-        result_collection = Result(actionsDB.all_docs, include_docs=True)
-
-        for result in result_collection:
-            print result
-            if result['doc'] is not None:
-                if result['doc']['intent'] == intent:
-                    if 'url' in result['doc'] and 'bot' in result['doc']:
-                        if result['doc']['url'] is None:
-                            action['bot'] = result['doc']['bot']
-                        else:
-                            action['url'] = result['doc']['url']
-                    break
-        print "Action: " + str(action)
-
-        # Disconnect from the server
-        client.disconnect()
-
-        return action
-
-    def insertDbUrl(self, action, link, intent):
-        if action == 'url':
-            data = {
-                'url': link,
-                'bot': 'None',
-                'intent': intent
-            }
-        elif action == 'bot':
-            data = {
-                'url': 'None',
-                'bot': link,
-                'intent': intent
-            }
-        client = Cloudant(COUCHDB_USER, COUCHDB_PASSWORD, url=COUCHDB_URL)
-
-        # Connect to the server
-        client.connect()
-
-        # Perform client tasks...
-        session = client.session()
-
-        actionsDB = client['actions']
-        my_document = actionsDB.create_document(data)
-
-        # Check that the document exists in the database
-        if my_document.exists():
-            print 'SUCCESS!!'
 
     def stripSpecial(self, myString):
         return myString.replace('\n', ' ').replace('"', '').replace('!', '').replace('@', '').replace('\#', '') \
