@@ -90,7 +90,7 @@ class Services:
         answer = ""
         intentName = ""
 
-        lowConfidenceMessage = ["I have no idea", "Han?", "You talking to me?", "I'm not trained on that yet...", "I have no idea"]
+        lowConfidenceMessage = ["Sorry! I have no idea how to answer that.", "I'm not trained on that yet...", "I have no idea but I am learning!"]
         if (confidence > 0.8) and (confidence < 0.9):
             answer = "I am in training but here's my best guess: "
         if (confidence > 0.5) and (confidence <= 0.8):
