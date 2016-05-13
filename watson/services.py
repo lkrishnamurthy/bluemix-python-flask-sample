@@ -25,6 +25,7 @@ import xml.etree.ElementTree
 import re
 import random
 from sets import Set
+from db.CloundantHelper import CloudantHelper
 
 from alchemyapi import AlchemyAPI
 from identifyConcepts import *
@@ -36,8 +37,6 @@ ic = IdentifyConcepts()
 rtcClient = rtc_client()
 
 NLC_URL = "https://gateway.watsonplatform.net/natural-language-classifier/api/v1/classifiers/"
-#NLC_CLASSIFIER="3a84dfx64-nlc-2405"
-NLC_CLASSIFIER="3a84cfx63-nlc-3072"
 NLC_CREDS = "0cff2e79-2b9e-4ed2-b200-598593755474:GIbzM6frd0Lg"
 
 RE_URL = "https://gateway.watsonplatform.net/relationship-extraction-beta/api/v1/sire/0"
@@ -49,35 +48,25 @@ SLACK_API_TOKEN_SLACKER="xoxp-34402827254-34409890672-36426885575-e8fce120c6"
 
 OUTPUT_DIR = "Slack/results"
 
-class ClassifyMessage:
+COUCHDB_USER="c36550aa-523c-46b7-b4a7-5314df97087e-bluemix"
+COUCHDB_PASSWORD="73ef275e1f46d75ee425e4c10ae2f1a49ed0b45b3ca5e8fe5f7a38d585cee26f"
+COUCHDB_URL="http://c36550aa-523c-46b7-b4a7-5314df97087e-bluemix.cloudant.com"
+
+dbHelper = CloudantHelper(COUCHDB_USER,COUCHDB_PASSWORD,COUCHDB_URL)
+
+class Services:
+    NLC_CLASSIFIER = ""
+
     def __init__(self):
-        print("Initialized Classifier")
-
-
-    def classifyText(self, text,store):
-        newClassification = {}
-        clauses = []
-
-        self.reService(text)
-
-        #break message into main clauses to identify multiple intents
-        newClassification, clauses = self.getClauses(newClassification, clauses, text)
-
-        #get the sentiment of the message from Alchemy services
-        newClassification = self.getAlchemySentiment(newClassification, text)
-
-        #get the keywords with sentiment from the message from Alchemy services
-        newClassification, searchChannels = self.getAlchemyKeywords(newClassification, text)
-
-        #classify the intent of the different clausess
-        newClassification, confidence = self.nlcService(newClassification, clauses, searchChannels)
-        
-        if "true" in store:
-            return newClassification
-        else:            
-            print "Relevant channels: "+str(newClassification['RelevantChannels'])
-            return self.postProcessor(newClassification, confidence)
-
+        print("Initializing...")
+        if self.NLC_CLASSIFIER is None or self.NLC_CLASSIFIER == "":
+            result = dbHelper.query('classifierdb','status','A')
+            self.NLC_CLASSIFIER = result[0]['classifierId']
+            if self.NLC_CLASSIFIER is None or self.NLC_CLASSIFIER == "":
+                print "Invalid Classifier or classifier not found"
+                exit(1)
+            else:
+                print("Initialized successfully")
 
     def searchRtc(self, work_item_id):
         return rtcClient.get_work_item_status(work_item_id)
@@ -130,17 +119,18 @@ class ClassifyMessage:
                     rtcCreateIntents.add(intentName)
                     question = intent['text'].encode('ascii', 'ignore')
                     workItemDescription = re.findall('\"(.+)\"', question)
+
             # post processing action intents (when a link is provided)
             for intent in actionIntents:
                 if numberIntents == 0:
                     actionIntentNames = intent.replace('_', ' ')
-                    urls = self.getUrl(intent)
+                    urls = self.getUrl(intent)['url']
                 elif numberIntents + 1 == len(actionIntents):
                     actionIntentNames = actionIntentNames + " and " + intent.replace('_', ' ')
-                    urls = urls + " and " + self.getUrl(intent)
+                    urls = urls + " and " + self.getUrl(intent)['url']
                 else:
                     actionIntentNames = actionIntentNames + ", " + intent.replace('_', ' ')
-                    urls = urls + ", " + self.getUrl(intent)
+                    urls = urls + ", " + self.getUrl(intent)['url']
                 numberIntents += 1
             if numberIntents > 0:
                 answer = answer+"I can help you right away with " + actionIntentNames + ". Just follow the link(s): " + urls
@@ -150,22 +140,19 @@ class ClassifyMessage:
             for intent in botIntents:
                 if numberIntents == 0:
                     botIntentNames = intent.replace('_', ' ')
-                    urls = self.getUrl(intent)
+                    urls = self.getUrl(intent)['bot']
                 elif numberIntents + 1 == len(botIntents):
                     botIntentNames = botIntentNames + " and " + intent.replace('_', ' ')
-                    urls = urls + " and " + self.getUrl(intent)
+                    urls = urls + " and " + self.getUrl(intent)['bot']
                 else:
                     botIntentNames = botIntentNames + ", " + intent.replace('_', ' ')
-                    urls = urls + ", " + self.getUrl(intent)
+                    urls = urls + ", " + self.getUrl(intent)['bot']
                 numberIntents += 1
             if len(botIntents) > 0 and answer is not "":
                 answer = answer+" and for "+botIntentNames+" I found cool Bots that can help "+ urls
             elif len(botIntents) > 0:
                 answer = "For " + botIntentNames + " I found cool Bots that can help " + urls
-            print "Intents: "+str(intents)
-            print "RTC Query Intents: "+str(rtcQueryIntents)
-            print "Work Item Number: "+ str(workItemNumber)
-            print "Work Item Description: " + str(workItemDescription)
+
             # actual implementation of the rtc bot (it makes calls to the Jazz API)
             if len(rtcQueryIntents) > 0:
                 for intent in rtcQueryIntents:
@@ -213,6 +200,8 @@ class ClassifyMessage:
             # if response['Sentiment'] is "negative":
             action['Severity'] = "high"
             url = self.getUrl(intent)
+            if url.__len__() > 0:
+                url = url['url']
             action['URL'] = url
             intent = intent.replace('_', ' ')
             if ("box" in intent) or ("badge" in intent) or ("enterprise" in intent) \
@@ -309,7 +298,7 @@ class ClassifyMessage:
             print "Trouble appending relevant channels to the answer"
         return action['Message']
 
-    # Calls Relatioship Extraction service and writes response to the file parse.txt
+    # Calls Relationship Extraction service and writes response to the file parse.txt
     # under the output directory (for future use by other methods)
     def reService(self, text):
         text = text.encode('ascii', 'ignore').decode('ascii')
@@ -417,13 +406,13 @@ class ClassifyMessage:
 
     # getting the NLC classification. It needs to be done by each clause individually
     # returns a list of nlc outputs and append it to the final object
-    def nlcService(self, newClassification, clauses, searchChannels):
+    def getIntents(self, newClassification, clauses, searchChannels):
         intents = []
         confidence = 1
         for clause in clauses:
             text = clause.encode('ascii', 'ignore').decode('ascii')
             nlcText = text.replace(" ","%20")
-            request = NLC_URL+NLC_CLASSIFIER+"/classify?text="+nlcText
+            request = NLC_URL + self.NLC_CLASSIFIER+"/classify?text="+nlcText
             request = request.strip()
             curl_cmd = 'curl -G -u %s %s' % (NLC_CREDS, request)
             process = subprocess.Popen(shlex.split(curl_cmd), stdout=subprocess.PIPE)
@@ -467,34 +456,51 @@ class ClassifyMessage:
         print "Teams: "+str(teams)
         return teams
 
-    def queryDB(self, host, dbName, selector, fields):
-        return None
+    def getUrl(self, intent):
+        action = {}
 
-    def getUrl(self,intent):
-        if intent == 'repository':
-            url = "https://slackerdemo.slack.com/apps/new/A0F7XDU93-hubot"
-        elif intent == 'scheduling':
-            url = "https://meekan.com/slack/?ref=slackappstore"
-        elif intent == 'enterprise_directory':
-            url = "https://w3-03.sso.ibm.com/bluepages/index.wss"
-        elif intent == 'analytics':
-            url = "https://statsbot.co/?ref=slackappstore"
-        elif intent == 'badge':
-            url = "http://w3-03.ibm.com/security/secweb.nsf/ContentDocsByCtryTitle/United+States~Badge+request+and+administration"
-        elif intent == 'box_notes':
-            url = "https://www.box.com/notes/"
-        elif intent == 'travel':
-            url = "http://w3-01.ibm.com/hr/web/travel/index.html"
-        elif intent == 'expenses':
-            url = "http://w3-01.ibm.com/hr/web/expenses/"
-        elif intent == 'assets':
-            url = "https://w3-03.sso.ibm.com/tools/assets/eamt/index.jsp"
-        elif intent == 'procurement':
-            url = "https://w3-01.sso.ibm.com/procurement/buyondemand/"
-        else:
-            url = None
-        return url
+        results = dbHelper.query('actions', 'intent', intent)
 
+        if results.__len__() == 0:
+            return action
+
+        document = results[0]
+
+        if 'url' in document and 'bot' in document:
+            if document['url'] == "None" or document['url'] == "":
+                action['bot'] = document['bot']
+            else:
+                action['url'] = document['url']
+
+        return action
+
+    def insertDbUrl(self, action, link, intent):
+        if action == 'url':
+            data = {
+                'url': link,
+                'bot': 'None',
+                'intent': intent
+            }
+        elif action == 'bot':
+            data = {
+                'url': 'None',
+                'bot': link,
+                'intent': intent
+            }
+        client = Cloudant(COUCHDB_USER, COUCHDB_PASSWORD, url=COUCHDB_URL)
+
+        # Connect to the server
+        client.connect()
+
+        # Perform client tasks...
+        session = client.session()
+
+        actionsDB = client['actions']
+        my_document = actionsDB.create_document(data)
+
+        # Check that the document exists in the database
+        if my_document.exists():
+            print 'SUCCESS!!'
 
     def stripSpecial(self, myString):
         return myString.replace('\n', ' ').replace('"', '').replace('!', '').replace('@', '').replace('\#', '') \

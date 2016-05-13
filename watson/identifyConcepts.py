@@ -49,7 +49,7 @@ class IdentifyConcepts:
     
     def __init__(self):
         print("Initialized Concept Identification")
-        
+
     def stripSpecial(self, myString):
         return myString.replace('\n', ' ').replace('"', ' ').replace('!', ' ').replace('@', ' ').replace('#', ' ') \
             .replace('$', ' ').replace('%', ' ').replace('^', ' ').replace('&', ' ').replace('*', ' ').replace('(', ' ') \

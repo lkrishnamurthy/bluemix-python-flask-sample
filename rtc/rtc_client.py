@@ -148,7 +148,7 @@ class rtc_client(object):
         #
         # Define login credentials
         #
-        self.user = "<user>"
+        self.user = "<username>"
         self.password = "<password>"
         self.rtc_url = '<RTC_URL>'  # default to override
         #self.jazz_url = 'https://jazzop09.rtp.raleigh.ibm.com:9943/jazz'
@@ -583,9 +583,9 @@ class rtc_client(object):
 
         try:
             self.session.login()
-            print("Login succeeded\n")
+            print("Jazz Initialization succeeded\n")
         except:
-           print("Login credentials did not authenticate.\n")
+           print("Unable to authenticate to Jazz.\n")
 
         #
         # Retrieve and setup common information
