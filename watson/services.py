@@ -201,7 +201,10 @@ class Services:
             action['Severity'] = "high"
             url = self.getUrl(intent)
             if url.__len__() > 0:
-                url = url['url']
+                if 'url' in url:
+                    url = url['url']
+                else:
+                    url = url['bot']
             action['URL'] = url
             intent = intent.replace('_', ' ')
             if ("box" in intent) or ("badge" in intent) or ("enterprise" in intent) \
